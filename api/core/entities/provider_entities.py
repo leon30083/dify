@@ -108,6 +108,7 @@ class CustomModelConfiguration(BaseModel):
     model: str
     model_type: ModelType
     credentials: dict
+    current_credential_id: Optional[str] = None
     available_model_credentials: list[CredentialConfiguration] = []
 
     # pydantic configs
