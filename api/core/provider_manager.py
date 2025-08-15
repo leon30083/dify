@@ -691,8 +691,8 @@ class ProviderManager:
 
             custom_provider_configuration = CustomProviderConfiguration(
                 credentials=provider_credentials,
-                current_credential_name=provider_record.credential_name,
-                current_credential_id=provider_record.credential_id,
+                current_credential_name=custom_provider_record.credential_name,
+                current_credential_id=custom_provider_record.credential_id,
                 available_credentials=self.get_provider_available_credentials(
                     tenant_id, custom_provider_record.provider_name
                 ),
@@ -753,6 +753,7 @@ class ProviderManager:
                     model=provider_model_record.model_name,
                     model_type=ModelType.value_of(provider_model_record.model_type),
                     credentials=provider_model_credentials,
+                    current_credential_id=provider_model_record.credential_id,
                     available_model_credentials=available_model_credentials,
                 )
             )
@@ -957,6 +958,7 @@ class ProviderManager:
         if not provider_model_settings:
             return model_settings
 
+        has_invalid_load_balancing_configs = False
         for provider_model_setting in provider_model_settings:
             load_balancing_configs = []
             if provider_model_setting.load_balancing_enabled and load_balancing_model_configs:
@@ -965,6 +967,10 @@ class ProviderManager:
                         load_balancing_model_config.model_name == provider_model_setting.model_name
                         and load_balancing_model_config.model_type == provider_model_setting.model_type
                     ):
+                        if load_balancing_model_config.name == "__delete__":
+                            has_invalid_load_balancing_configs = True
+                            continue
+
                         if not load_balancing_model_config.enabled:
                             continue
 
@@ -1030,6 +1036,7 @@ class ProviderManager:
                     model_type=ModelType.value_of(provider_model_setting.model_type),
                     enabled=provider_model_setting.enabled,
                     load_balancing_configs=load_balancing_configs if len(load_balancing_configs) > 1 else [],
+                    has_invalid_load_balancing_configs=has_invalid_load_balancing_configs,
                 )
             )
 

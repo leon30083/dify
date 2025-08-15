@@ -157,7 +157,13 @@ class ProviderConfiguration(BaseModel):
         Check custom configuration available.
         :return:
         """
-        return self.custom_configuration.provider is not None or len(self.custom_configuration.models) > 0
+        has_provider_credentials = (
+            self.custom_configuration.provider is not None
+            and len(self.custom_configuration.provider.available_credentials) > 0
+        )
+
+        has_model_configurations = len(self.custom_configuration.models) > 0
+        return has_provider_credentials or has_model_configurations
 
     def get_custom_credential(self, credential_id: str | None = None) -> dict | None:
         """
@@ -1441,6 +1447,7 @@ class ProviderConfiguration(BaseModel):
 
                 status = ModelStatus.ACTIVE if credentials else ModelStatus.NO_CONFIGURE
                 load_balancing_enabled = False
+                has_invalid_load_balancing_configs = False
                 if m.model_type in model_setting_map and m.model in model_setting_map[m.model_type]:
                     model_setting = model_setting_map[m.model_type][m.model]
                     if model_setting.enabled is False:
@@ -1448,6 +1455,9 @@ class ProviderConfiguration(BaseModel):
 
                     if len(model_setting.load_balancing_configs) > 1:
                         load_balancing_enabled = True
+
+                    if model_setting.has_invalid_load_balancing_configs:
+                        has_invalid_load_balancing_configs = True
 
                 provider_models.append(
                     ModelWithProviderEntity(
@@ -1461,6 +1471,7 @@ class ProviderConfiguration(BaseModel):
                         provider=SimpleModelProviderEntity(self.provider),
                         status=status,
                         load_balancing_enabled=load_balancing_enabled,
+                        has_invalid_load_balancing_configs=has_invalid_load_balancing_configs,
                     )
                 )
 

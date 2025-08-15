@@ -108,6 +108,7 @@ class CustomModelConfiguration(BaseModel):
     model: str
     model_type: ModelType
     credentials: dict
+    current_credential_id: Optional[str] = None
     available_model_credentials: list[CredentialConfiguration] = []
 
     # pydantic configs
@@ -142,6 +143,7 @@ class ModelSettings(BaseModel):
     model_type: ModelType
     enabled: bool = True
     load_balancing_configs: list[ModelLoadBalancingConfiguration] = []
+    has_invalid_load_balancing_configs: bool = False
 
     # pydantic configs
     model_config = ConfigDict(protected_namespaces=())
