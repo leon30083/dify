@@ -691,8 +691,8 @@ class ProviderManager:
 
             custom_provider_configuration = CustomProviderConfiguration(
                 credentials=provider_credentials,
-                current_credential_name=provider_record.credential_name,
-                current_credential_id=provider_record.credential_id,
+                current_credential_name=custom_provider_record.credential_name,
+                current_credential_id=custom_provider_record.credential_id,
                 available_credentials=self.get_provider_available_credentials(
                     tenant_id, custom_provider_record.provider_name
                 ),
