@@ -16,7 +16,7 @@ from core.entities.provider_entities import (
     CustomProviderConfiguration,
     ModelLoadBalancingConfiguration,
     ModelSettings,
-    CredentialConfiguration,
+    ProviderCredentialConfiguration,
     ProviderQuotaType,
     QuotaConfiguration,
     QuotaUnit,
@@ -42,7 +42,6 @@ from models.provider import (
     Provider,
     ProviderCredential,
     ProviderModel,
-    ProviderModelCredential,
     ProviderModelSetting,
     ProviderType,
     TenantDefaultModel,
@@ -491,7 +490,7 @@ class ProviderManager:
         return provider_name_to_provider_load_balancing_model_configs_dict
 
     @staticmethod
-    def get_provider_available_credentials(tenant_id: str, provider_name: str) -> list[CredentialConfiguration]:
+    def get_provider_available_credentials(tenant_id: str, provider_name: str) -> list[ProviderCredentialConfiguration]:
         """
         Get provider all credentials.
 
@@ -508,36 +507,7 @@ class ProviderManager:
             available_credentials = session.scalars(stmt).all()
 
         return [
-            CredentialConfiguration(credential_id=credential.id, credential_name=credential.credential_name)
-            for credential in available_credentials
-        ]
-
-    @staticmethod
-    def get_provider_model_available_credentials(
-        tenant_id: str, provider_name: str, model_name: str, model_type: str
-    ) -> list[CredentialConfiguration]:
-        """
-        Get provider all credentials.
-
-        :param tenant_id: workspace id
-        :return: dict mapping provider_name to list of credentials
-        """
-        with Session(db.engine, expire_on_commit=False) as session:
-            stmt = (
-                select(ProviderModelCredential)
-                .where(
-                    ProviderModelCredential.tenant_id == tenant_id,
-                    ProviderModelCredential.provider_name == provider_name,
-                    ProviderModelCredential.model_name == model_name,
-                    ProviderModelCredential.model_type == model_type,
-                )
-                .order_by(ProviderModelCredential.created_at.desc())
-            )
-
-            available_credentials = session.scalars(stmt).all()
-
-        return [
-            CredentialConfiguration(credential_id=credential.id, credential_name=credential.credential_name)
+            ProviderCredentialConfiguration(credential_id=credential.id, credential_name=credential.credential_name)
             for credential in available_credentials
         ]
 
@@ -708,12 +678,8 @@ class ProviderManager:
         # Get custom provider model credentials
         custom_model_configurations = []
         for provider_model_record in provider_model_records:
-            available_model_credentials = self.get_provider_model_available_credentials(
-                tenant_id,
-                provider_model_record.provider_name,
-                provider_model_record.model_name,
-                provider_model_record.model_type,
-            )
+            if not provider_model_record.encrypted_config:
+                continue
 
             provider_model_credentials_cache = ProviderCredentialsCache(
                 tenant_id=tenant_id, identity_id=provider_model_record.id, cache_type=ProviderCredentialsCacheType.MODEL
@@ -753,7 +719,6 @@ class ProviderManager:
                     model=provider_model_record.model_name,
                     model_type=ModelType.value_of(provider_model_record.model_type),
                     credentials=provider_model_credentials,
-                    available_model_credentials=available_model_credentials,
                 )
             )
 

@@ -52,7 +52,7 @@ class ModelProviderCredentialApi(Resource):
         args = parser.parse_args()
 
         model_provider_service = ModelProviderService()
-        credentials = model_provider_service.get_provider_credential(
+        credentials = model_provider_service.get_provider_credentials(
             tenant_id=tenant_id, provider=provider, credential_id=args.get("credential_id")
         )
 
@@ -73,7 +73,7 @@ class ModelProviderCredentialApi(Resource):
         model_provider_service = ModelProviderService()
 
         try:
-            model_provider_service.save_provider_credential(
+            model_provider_service.save_provider_credentials(
                 tenant_id=current_user.current_tenant_id,
                 provider=provider,
                 credentials=args["credentials"],
@@ -94,13 +94,13 @@ class ModelProviderCredentialApi(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument("credential_id", type=uuid_value, required=True, nullable=False, location="json")
         parser.add_argument("credentials", type=dict, required=True, nullable=False, location="json")
-        parser.add_argument("name", type=StrLen(30), required=True, nullable=False, location="json")
+        parser.add_argument("name", type=StrLen(30), required=False, nullable=True, location="json")
         args = parser.parse_args()
 
         model_provider_service = ModelProviderService()
 
         try:
-            model_provider_service.update_provider_credential(
+            model_provider_service.update_provider_credentials(
                 tenant_id=current_user.current_tenant_id,
                 provider=provider,
                 credentials=args["credentials"],

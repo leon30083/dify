@@ -17,7 +17,7 @@ from core.model_runtime.entities.provider_entities import (
 from core.model_runtime.model_providers.model_provider_factory import ModelProviderFactory
 from core.provider_manager import ProviderManager
 from extensions.ext_database import db
-from models.provider import LoadBalancingModelConfig, ProviderCredential, ProviderModelCredential
+from models.provider import LoadBalancingModelConfig, ProviderCredential
 
 logger = logging.getLogger(__name__)
 
@@ -281,7 +281,7 @@ class ModelLoadBalancingService:
         return inherit_config
 
     def update_load_balancing_configs(
-        self, tenant_id: str, provider: str, model: str, model_type: str, configs: list[dict], config_from: str
+        self, tenant_id: str, provider: str, model: str, model_type: str, configs: list[dict]
     ) -> None:
         """
         Update load balancing configurations.
@@ -290,7 +290,6 @@ class ModelLoadBalancingService:
         :param model: model name
         :param model_type: model type
         :param configs: load balancing configs
-        :param config_from: predefined-model or custom-model
         :return:
         """
         # Get all provider configurations of the current workspace
@@ -333,28 +332,13 @@ class ModelLoadBalancingService:
             enabled = config.get("enabled")
 
             if credential_id:
-                if config_from == "predefined-model":
-                    credential_record = (
-                        db.session.query(ProviderCredential)
-                        .filter_by(
-                            id=credential_id,
-                            tenant_id=tenant_id,
-                            provider_name=provider_configuration.provider.provider,
-                        )
-                        .first()
+                credential_record = (
+                    db.session.query(ProviderCredential)
+                    .filter_by(
+                        id=credential_id, tenant_id=tenant_id, provider_name=provider_configuration.provider.provider
                     )
-                else:
-                    credential_record = (
-                        db.session.query(ProviderModelCredential)
-                        .filter_by(
-                            id=credential_id,
-                            tenant_id=tenant_id,
-                            provider_name=provider_configuration.provider.provider,
-                            model_name=model,
-                            model_type=model_type.to_origin_model_type(),
-                        )
-                        .first()
-                    )
+                    .first()
+                )
                 if not credential_record:
                     raise ValueError(f"Provider credential with id {credential_id} not found")
                 name = credential_record.credential_name

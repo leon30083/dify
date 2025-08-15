@@ -47,7 +47,6 @@ class ModelProviderService:
                     continue
 
             provider_config = provider_configuration.custom_configuration.provider
-            model_config = provider_configuration.custom_configuration.models
 
             provider_response = ProviderResponse(
                 tenant_id=tenant_id,
@@ -70,7 +69,6 @@ class ModelProviderService:
                     current_credential_id=getattr(provider_config, "current_credential_id", None),
                     current_credential_name=getattr(provider_config, "current_credential_name", None),
                     available_credentials=getattr(provider_config, "available_credentials", []),
-                    custom_models=model_config,
                 ),
                 system_configuration=SystemConfigurationResponse(
                     enabled=provider_configuration.system_configuration.enabled,
@@ -102,7 +100,7 @@ class ModelProviderService:
             for model in provider_configurations.get_models(provider=provider)
         ]
 
-    def get_provider_credential(
+    def get_provider_credentials(
         self, tenant_id: str, provider: str, credential_id: Optional[str] = None
     ) -> Optional[dict]:
         """
@@ -118,7 +116,7 @@ class ModelProviderService:
         if not provider_configuration:
             raise ValueError(f"Provider {provider} does not exist.")
 
-        return provider_configuration.get_custom_credential(credential_id=credential_id)
+        return provider_configuration.get_custom_credentials(credential_id=credential_id)
 
     def provider_credentials_validate(self, tenant_id: str, provider: str, credentials: dict) -> None:
         """
@@ -138,7 +136,7 @@ class ModelProviderService:
 
         provider_configuration.custom_credentials_validate(credentials)
 
-    def save_provider_credential(self, tenant_id: str, provider: str, credentials: dict, credential_name: str) -> None:
+    def save_provider_credentials(self, tenant_id: str, provider: str, credentials: dict, credential_name: str) -> None:
         """
         save custom provider config.
 
@@ -157,15 +155,15 @@ class ModelProviderService:
             raise ValueError(f"Provider {provider} does not exist.")
 
         # Add custom provider credentials.
-        provider_configuration.add_custom_credential(credentials, credential_name)
+        provider_configuration.add_custom_credentials(credentials, credential_name)
 
-    def update_provider_credential(
+    def update_provider_credentials(
         self,
         tenant_id: str,
         provider: str,
         credentials: dict,
         credential_id: str,
-        credential_name: str,
+        credential_name: str | None = None,
     ) -> None:
         """
         update a saved provider credential (by credential_id).
@@ -221,9 +219,7 @@ class ModelProviderService:
 
         provider_configuration.switch_active_provider_credential(credential_id=credential_id)
 
-    def get_model_credential(
-        self, tenant_id: str, provider: str, model_type: str, model: str, credential_id: str | None
-    ) -> Optional[dict]:
+    def get_model_credentials(self, tenant_id: str, provider: str, model_type: str, model: str) -> Optional[dict]:
         """
         get model credentials.
 
@@ -231,7 +227,6 @@ class ModelProviderService:
         :param provider: provider name
         :param model_type: model type
         :param model: model name
-        :param credential_id: credential id, if not provided, return current used credentials
         :return:
         """
         # Get all provider configurations of the current workspace
@@ -244,7 +239,7 @@ class ModelProviderService:
 
         # Get model custom credentials from ProviderModel if exists
         return provider_configuration.get_custom_model_credentials(
-            model_type=ModelType.value_of(model_type), model=model, credential_id=credential_id
+            model_type=ModelType.value_of(model_type), model=model, obfuscated=True
         )
 
     def model_credentials_validate(
@@ -273,8 +268,8 @@ class ModelProviderService:
             model_type=ModelType.value_of(model_type), model=model, credentials=credentials
         )
 
-    def save_model_credential(
-        self, tenant_id: str, provider: str, model_type: str, model: str, credentials: dict, credential_name: str
+    def save_model_credentials(
+        self, tenant_id: str, provider: str, model_type: str, model: str, credentials: dict
     ) -> None:
         """
         save model credentials.
@@ -284,7 +279,6 @@ class ModelProviderService:
         :param model_type: model type
         :param model: model name
         :param credentials: model credentials
-        :param credential_name: credential name
         :return:
         """
         # Get all provider configurations of the current workspace
@@ -295,106 +289,12 @@ class ModelProviderService:
         if not provider_configuration:
             raise ValueError(f"Provider {provider} does not exist.")
 
-        # Add custom model credentials
-        provider_configuration.add_custom_model_credential(
-            model_type=ModelType.value_of(model_type),
-            model=model,
-            credentials=credentials,
-            credential_name=credential_name,
+        # Add or update custom model credentials
+        provider_configuration.add_or_update_custom_model_credentials(
+            model_type=ModelType.value_of(model_type), model=model, credentials=credentials
         )
 
-    def update_model_credential(
-        self,
-        tenant_id: str,
-        provider: str,
-        model_type: str,
-        model: str,
-        credentials: dict,
-        credential_id: str,
-        credential_name: str,
-    ) -> None:
-        """
-        update model credentials.
-
-        :param tenant_id: workspace id
-        :param provider: provider name
-        :param model_type: model type
-        :param model: model name
-        :param credentials: model credentials
-        :param credential_id: credential id
-        :param credential_name: credential name
-        :return:
-        """
-        # Get all provider configurations of the current workspace
-        provider_configurations = self.provider_manager.get_configurations(tenant_id)
-
-        # Get provider configuration
-        provider_configuration = provider_configurations.get(provider)
-        if not provider_configuration:
-            raise ValueError(f"Provider {provider} does not exist.")
-
-        # Update custom model credentials
-        provider_configuration.update_custom_model_credential(
-            model_type=ModelType.value_of(model_type),
-            model=model,
-            credentials=credentials,
-            credential_id=credential_id,
-            credential_name=credential_name,
-        )
-
-    def remove_model_credential(
-        self, tenant_id: str, provider: str, model_type: str, model: str, credential_id: str
-    ) -> None:
-        """
-        remove model credentials.
-
-        :param tenant_id: workspace id
-        :param provider: provider name
-        :param model_type: model type
-        :param model: model name
-        :param credential_id: credential id
-        :return:
-        """
-        # Get all provider configurations of the current workspace
-        provider_configurations = self.provider_manager.get_configurations(tenant_id)
-
-        # Get provider configuration
-        provider_configuration = provider_configurations.get(provider)
-        if not provider_configuration:
-            raise ValueError(f"Provider {provider} does not exist.")
-
-        # Remove custom model credentials
-        provider_configuration.remove_custom_model_credential(
-            model_type=ModelType.value_of(model_type), model=model, credential_id=credential_id
-        )
-
-    def switch_active_provider_model_credential(
-        self, tenant_id: str, provider: str, model_type: str, model: str, credential_id: str
-    ) -> None:
-        """
-        switch model credentials.
-
-        :param tenant_id: workspace id
-        :param provider: provider name
-        :param model_type: model type
-        :param model: model name
-        :param credential_id: credential id
-        :return:
-        """
-        # Get all provider configurations of the current workspace
-        provider_configurations = self.provider_manager.get_configurations(tenant_id)
-
-        # Get provider configuration
-        provider_configuration = provider_configurations.get(provider)
-        if not provider_configuration:
-            raise ValueError(f"Provider {provider} does not exist.")
-
-        # Remove custom model credentials
-        provider_configuration.switch_custom_model_credential(
-            model_type=ModelType.value_of(model_type), model=model, credential_id=credential_id
-        )
-
-    def remove_model(self, tenant_id: str, provider: str, model_type: str, model: str) -> None:
+    def remove_model_credentials(self, tenant_id: str, provider: str, model_type: str, model: str) -> None:
         """
         remove model credentials.
 
@@ -413,7 +313,7 @@ class ModelProviderService:
             raise ValueError(f"Provider {provider} does not exist.")
 
         # Remove custom model credentials
-        provider_configuration.delete_custom_model(model_type=ModelType.value_of(model_type), model=model)
+        provider_configuration.delete_custom_model_credentials(model_type=ModelType.value_of(model_type), model=model)
 
     def get_models_by_model_type(self, tenant_id: str, model_type: str) -> list[ProviderWithModelsResponse]:
         """

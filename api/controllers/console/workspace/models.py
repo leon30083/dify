@@ -10,7 +10,6 @@ from core.model_runtime.entities.model_entities import ModelType
 from core.model_runtime.errors.validate import CredentialsValidateFailedError
 from core.model_runtime.utils.encoders import jsonable_encoder
 from libs.login import login_required
-from libs.helper import StrLen, uuid_value
 from services.model_load_balancing_service import ModelLoadBalancingService
 from services.model_provider_service import ModelProviderService
 
@@ -137,7 +136,6 @@ class ModelProviderModelApi(Resource):
                 model=args["model"],
                 model_type=args["model_type"],
                 configs=args["load_balancing"]["configs"],
-                config_from=args.get("config_from", ""),
             )
 
             # enable load balancing
@@ -154,7 +152,7 @@ class ModelProviderModelApi(Resource):
                 model_provider_service = ModelProviderService()
 
                 try:
-                    model_provider_service.save_model_credential(
+                    model_provider_service.save_model_credentials(
                         tenant_id=tenant_id,
                         provider=provider,
                         model=args["model"],
@@ -194,7 +192,7 @@ class ModelProviderModelApi(Resource):
         args = parser.parse_args()
 
         model_provider_service = ModelProviderService()
-        model_provider_service.remove_model(
+        model_provider_service.remove_model_credentials(
             tenant_id=tenant_id, provider=provider, model=args["model"], model_type=args["model_type"]
         )
 
@@ -218,17 +216,11 @@ class ModelProviderModelCredentialApi(Resource):
             choices=[mt.value for mt in ModelType],
             location="args",
         )
-        parser.add_argument("config_from", type=str, required=False, nullable=True, location="args")
-        parser.add_argument("credential_id", type=uuid_value, required=False, nullable=True, location="args")
         args = parser.parse_args()
 
         model_provider_service = ModelProviderService()
-        credentials = model_provider_service.get_model_credential(
-            tenant_id=tenant_id,
-            provider=provider,
-            model_type=args["model_type"],
-            model=args["model"],
-            credential_id=args.get("credential_id"),
+        credentials = model_provider_service.get_model_credentials(
+            tenant_id=tenant_id, provider=provider, model_type=args["model_type"], model=args["model"]
         )
 
         model_load_balancing_service = ModelLoadBalancingService()
@@ -236,15 +228,9 @@ class ModelProviderModelCredentialApi(Resource):
             tenant_id=tenant_id, provider=provider, model=args["model"], model_type=args["model_type"]
         )
 
-        if args.get("config_from", "") == "predefined-model":
-            available_credentials = model_provider_service.provider_manager.get_provider_available_credentials(
-                tenant_id=tenant_id, provider_name=provider
-            )
-        else:
-            model_type = ModelType.value_of(args["model_type"]).to_origin_model_type()
-            available_credentials = model_provider_service.provider_manager.get_provider_model_available_credentials(
-                tenant_id=tenant_id, provider_name=provider, model_type=model_type, model_name=args["model"]
-            )
+        available_credentials = model_provider_service.provider_manager.get_provider_available_credentials(
+            tenant_id=tenant_id, provider_name=provider
+        )
 
         return jsonable_encoder(
             {
@@ -253,150 +239,6 @@ class ModelProviderModelCredentialApi(Resource):
                 "available_credentials": available_credentials,
             }
         )
-
-    @setup_required
-    @login_required
-    @account_initialization_required
-    def post(self, provider: str):
-        if not current_user.is_admin_or_owner:
-            raise Forbidden()
-
-        parser = reqparse.RequestParser()
-        parser.add_argument("model", type=str, required=True, nullable=False, location="json")
-        parser.add_argument(
-            "model_type",
-            type=str,
-            required=True,
-            nullable=False,
-            choices=[mt.value for mt in ModelType],
-            location="json",
-        )
-        parser.add_argument("name", type=StrLen(30), required=True, nullable=False, location="json")
-        parser.add_argument("credentials", type=dict, required=True, nullable=False, location="json")
-        args = parser.parse_args()
-
-        tenant_id = current_user.current_tenant_id
-        model_provider_service = ModelProviderService()
-
-        try:
-            model_provider_service.save_model_credential(
-                tenant_id=tenant_id,
-                provider=provider,
-                model=args["model"],
-                model_type=args["model_type"],
-                credentials=args["credentials"],
-                credential_name=args["name"],
-            )
-        except CredentialsValidateFailedError as ex:
-            logging.exception(
-                "Failed to save model credentials, tenant_id: %s, model: %s, model_type: %s",
-                tenant_id,
-                args.get("model"),
-                args.get("model_type"),
-            )
-            raise ValueError(str(ex))
-
-        return {"result": "success"}, 201
-
-    @setup_required
-    @login_required
-    @account_initialization_required
-    def put(self, provider: str):
-        if not current_user.is_admin_or_owner:
-            raise Forbidden()
-
-        parser = reqparse.RequestParser()
-        parser.add_argument("model", type=str, required=True, nullable=False, location="json")
-        parser.add_argument(
-            "model_type",
-            type=str,
-            required=True,
-            nullable=False,
-            choices=[mt.value for mt in ModelType],
-            location="json",
-        )
-        parser.add_argument("credential_id", type=uuid_value, required=True, nullable=False, location="json")
-        parser.add_argument("credentials", type=dict, required=True, nullable=False, location="json")
-        parser.add_argument("name", type=StrLen(30), required=True, nullable=False, location="json")
-        args = parser.parse_args()
-
-        model_provider_service = ModelProviderService()
-
-        try:
-            model_provider_service.update_model_credential(
-                tenant_id=current_user.current_tenant_id,
-                provider=provider,
-                model_type=args["model_type"],
-                model=args["model"],
-                credentials=args["credentials"],
-                credential_id=args["credential_id"],
-                credential_name=args["name"],
-            )
-        except CredentialsValidateFailedError as ex:
-            raise ValueError(str(ex))
-
-        return {"result": "success"}
-
-    @setup_required
-    @login_required
-    @account_initialization_required
-    def delete(self, provider: str):
-        if not current_user.is_admin_or_owner:
-            raise Forbidden()
-        parser = reqparse.RequestParser()
-        parser.add_argument("model", type=str, required=True, nullable=False, location="json")
-        parser.add_argument(
-            "model_type",
-            type=str,
-            required=True,
-            nullable=False,
-            choices=[mt.value for mt in ModelType],
-            location="json",
-        )
-        parser.add_argument("credential_id", type=uuid_value, required=True, nullable=False, location="json")
-        args = parser.parse_args()
-
-        model_provider_service = ModelProviderService()
-        model_provider_service.remove_model_credential(
-            tenant_id=current_user.current_tenant_id,
-            provider=provider,
-            model_type=args["model_type"],
-            model=args["model"],
-            credential_id=args["credential_id"],
-        )
-
-        return {"result": "success"}, 204
-
-
-class ModelProviderModelCredentialSwitchApi(Resource):
-    @setup_required
-    @login_required
-    @account_initialization_required
-    def post(self, provider: str):
-        if not current_user.is_admin_or_owner:
-            raise Forbidden()
-        parser = reqparse.RequestParser()
-        parser.add_argument("model", type=str, required=True, nullable=False, location="json")
-        parser.add_argument(
-            "model_type",
-            type=str,
-            required=True,
-            nullable=False,
-            choices=[mt.value for mt in ModelType],
-            location="json",
-        )
-        parser.add_argument("credential_id", type=str, required=True, nullable=False, location="json")
-        args = parser.parse_args()
-
-        service = ModelProviderService()
-        service.switch_active_provider_model_credential(
-            tenant_id=current_user.current_tenant_id,
-            provider=provider,
-            model_type=args["model_type"],
-            model=args["model"],
-            credential_id=args["credential_id"],
-        )
-        return {"result": "success"}
 
 
 class ModelProviderModelEnableApi(Resource):
@@ -543,10 +385,6 @@ api.add_resource(
 )
 api.add_resource(
     ModelProviderModelCredentialApi, "/workspaces/current/model-providers/<path:provider>/models/credentials"
-)
-api.add_resource(
-    ModelProviderModelCredentialSwitchApi,
-    "/workspaces/current/model-providers/<path:provider>/models/credentials/switch",
 )
 api.add_resource(
     ModelProviderModelValidateApi, "/workspaces/current/model-providers/<path:provider>/models/credentials/validate"
