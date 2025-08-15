@@ -20,7 +20,7 @@ depends_on = None
 
 def upgrade():
     # Create provider_credential table
-    op.create_table('provider_credential',
+    op.create_table('provider_credentials',
     sa.Column('id', models.types.StringUUID(), server_default=sa.text('uuid_generate_v4()'), nullable=False),
     sa.Column('tenant_id', models.types.StringUUID(), nullable=False),
     sa.Column('provider_name', sa.String(length=255), nullable=False),
@@ -31,7 +31,7 @@ def upgrade():
     sa.PrimaryKeyConstraint('id', name='provider_credential_pkey')
     )
 
-    # Create index for provider_credential
+    # Create index for provider_credentials
     with op.batch_alter_table('provider_credential', schema=None) as batch_op:
         batch_op.create_index('provider_credential_tenant_provider_idx', ['tenant_id', 'provider_name'], unique=False)
 
@@ -64,7 +64,7 @@ def migrate_existing_providers_data():
         column('credential_id', models.types.StringUUID()),
     )
     
-    provider_credential_table = table('provider_credential',
+    provider_credential_table = table('provider_credentials',
         column('id', models.types.StringUUID()),
         column('tenant_id', models.types.StringUUID()),
         column('provider_name', sa.String()),
@@ -129,7 +129,7 @@ def downgrade():
         batch_op.drop_column('credential_id')
 
     # Drop provider_credential table
-    op.drop_table('provider_credential')
+    op.drop_table('provider_credentials')
 
 
 def migrate_data_back_to_providers():
@@ -144,7 +144,7 @@ def migrate_data_back_to_providers():
         column('credential_id', models.types.StringUUID()),
     )
     
-    provider_credential_table = table('provider_credential',
+    provider_credential_table = table('provider_credentials',
         column('id', models.types.StringUUID()),
         column('tenant_id', models.types.StringUUID()),
         column('provider_name', sa.String()),
