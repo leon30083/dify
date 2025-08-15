@@ -351,7 +351,7 @@ class ModelLoadBalancingService:
                             tenant_id=tenant_id,
                             provider_name=provider_configuration.provider.provider,
                             model_name=model,
-                            model_type=model_type.to_origin_model_type(),
+                            model_type=model_type_enum.to_origin_model_type(),
                         )
                         .first()
                     )
@@ -375,11 +375,6 @@ class ModelLoadBalancingService:
                 updated_config_ids.add(config_id)
 
                 load_balancing_config = current_load_balancing_configs_dict[config_id]
-
-                # check duplicate name
-                for current_load_balancing_config in current_load_balancing_configs:
-                    if current_load_balancing_config.id != config_id and current_load_balancing_config.name == name:
-                        raise ValueError(f"Load balancing config name {name} already exists")
 
                 if credentials:
                     if not isinstance(credentials, dict):
@@ -407,15 +402,11 @@ class ModelLoadBalancingService:
                 self._clear_credentials_cache(tenant_id, config_id)
             else:
                 # create load balancing config
-                if name == "__inherit__":
+                if name == "__inherit__" or name == "__delete__":
                     raise ValueError("Invalid load balancing config name")
 
-                # check duplicate name
-                for current_load_balancing_config in current_load_balancing_configs:
-                    if current_load_balancing_config.name == name:
-                        raise ValueError(f"Load balancing config name {name} already exists")
-
                 if credential_id:
+                    credential_source = "provider" if config_from == "predefined-model" else "custom_model"
                     load_balancing_model_config = LoadBalancingModelConfig(
                         tenant_id=tenant_id,
                         provider_name=provider_configuration.provider.provider,
@@ -424,6 +415,7 @@ class ModelLoadBalancingService:
                         name=credential_record.credential_name,
                         encrypted_config=credential_record.encrypted_config,
                         credential_id=credential_id,
+                        credential_source_type=credential_source,
                     )
                 else:
                     if not credentials:

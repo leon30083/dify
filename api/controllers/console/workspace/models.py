@@ -99,6 +99,7 @@ class ModelProviderModelApi(Resource):
     @login_required
     @account_initialization_required
     def post(self, provider: str):
+        # To save the model's load balance configs
         if not current_user.is_admin_or_owner:
             raise Forbidden()
 
@@ -114,7 +115,6 @@ class ModelProviderModelApi(Resource):
             choices=[mt.value for mt in ModelType],
             location="json",
         )
-        parser.add_argument("credentials", type=dict, required=False, nullable=True, location="json")
         parser.add_argument("load_balancing", type=dict, required=False, nullable=True, location="json")
         parser.add_argument("config_from", type=str, required=False, nullable=True, location="json")
         args = parser.parse_args()
@@ -149,26 +149,6 @@ class ModelProviderModelApi(Resource):
             model_load_balancing_service.disable_model_load_balancing(
                 tenant_id=tenant_id, provider=provider, model=args["model"], model_type=args["model_type"]
             )
-
-            if args.get("config_from", "") != "predefined-model":
-                model_provider_service = ModelProviderService()
-
-                try:
-                    model_provider_service.save_model_credential(
-                        tenant_id=tenant_id,
-                        provider=provider,
-                        model=args["model"],
-                        model_type=args["model_type"],
-                        credentials=args["credentials"],
-                    )
-                except CredentialsValidateFailedError as ex:
-                    logging.exception(
-                        "Failed to save model credentials, tenant_id: %s, model: %s, model_type: %s",
-                        tenant_id,
-                        args.get("model"),
-                        args.get("model_type"),
-                    )
-                    raise ValueError(str(ex))
 
         return {"result": "success"}, 200
 

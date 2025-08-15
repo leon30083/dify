@@ -957,6 +957,7 @@ class ProviderManager:
         if not provider_model_settings:
             return model_settings
 
+        has_invalid_load_balancing_configs = False
         for provider_model_setting in provider_model_settings:
             load_balancing_configs = []
             if provider_model_setting.load_balancing_enabled and load_balancing_model_configs:
@@ -965,6 +966,10 @@ class ProviderManager:
                         load_balancing_model_config.model_name == provider_model_setting.model_name
                         and load_balancing_model_config.model_type == provider_model_setting.model_type
                     ):
+                        if load_balancing_model_config.name == "__delete__":
+                            has_invalid_load_balancing_configs = True
+                            continue
+
                         if not load_balancing_model_config.enabled:
                             continue
 
@@ -1030,6 +1035,7 @@ class ProviderManager:
                     model_type=ModelType.value_of(provider_model_setting.model_type),
                     enabled=provider_model_setting.enabled,
                     load_balancing_configs=load_balancing_configs if len(load_balancing_configs) > 1 else [],
+                    has_invalid_load_balancing_configs=has_invalid_load_balancing_configs,
                 )
             )
 
